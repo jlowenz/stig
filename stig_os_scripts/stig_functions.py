@@ -13,49 +13,11 @@ import os.path
 import subprocess
 import stat
 import getpass
+from ubuntu import *
 
-# Check the OS version first.  Meets a STIG requirement and if it's not a supported version for this lockdown script exit
-#
-# Rule-ID SV-27049r1 - OS must be a supported release
-#
-# Check if the OS is Ubuntu and is a supported ROGUE version
-#
-# Grab the OS version. Bend, fold, spindle, mutilate  - deteriorata - so that it can be verified
-#
-# First and foremost, using this script means you are using a supposted release for ROGUE
-# Second, this scipt is intended for ROGUE use and if the OS changes, so will this script.
-
-os_cmd_check = os.system('lsb_release -d')
-os_text_string = os.popen('lsb_release -d').read().split()
-os_text_version = os_text_string[2]
-os_text_version = os_text_version.strip()
-
-if os_cmd_check != 0:
-    print 'Ubuntu version command failed. Not an Ubuntu OS or supported Ubuntu OS?\nExiting.'
-    exit()
-
-if (os_text_version != "12.03") and (os_text_version != "12.04"):
-    print 'Unsupported version of Ubuntu detected.\nThis script supports Ubuntu 12.03 LTS and 12.04 LTS.\nExiting.\n'
-    exit()
-
-#
-# Do a package update to get the latest package indexes.  Some packages will fail if this is not done.
-#
-
-os.system('apt-get update')
-
-# Install python-pexpect since it is required by the script.
-
-# Check if installed. If not, install it.
-#
-
-pexpect_check=os.system('dpkg --get-selections | grep pexpect')
-
-if pexpect_check != 0:
-    os.system('apt-get install -y python-pexpect')
-    import pexpect
-else:
-    import pexpect
+#check_os_version()
+#update_packages()
+#install_dependencies()
 
 #########################################################################################################################
 #
@@ -82,7 +44,9 @@ def audit():
     #
 
     # install auditd
-
+    if not verify_package("auditd"):
+        print "failed to install auditd"
+        
     auditd_check=os.system('dpkg --get-selections | grep auditd')
     if auditd_check != 0:
         os.system('apt-get install -y auditd')
