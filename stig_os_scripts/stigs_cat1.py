@@ -1,11 +1,11 @@
 from ubuntu import *
+import stig_functions
 import os
 import subprocess as p
 import StringIO as sio
 
 # so for each fix class, we have a check and fix method
 
-gPREFIX = "../../" # GAH!!
 Pass = True
 Fail = False
 
@@ -19,7 +19,6 @@ class STIG(object):
     def __init__(self, desc):
         self.desc = desc
         self.status = Fail
-        self.prefix = gPREFIX
 
     def __str__(self):
         return self.desc + ": " + status(self.check())
@@ -70,18 +69,19 @@ class v11940(STIG):
 class v27051(STIG):
     def __init__(self):
         STIG.__init__(self, "(v27051) No host-based authentication")
-        self.homes = "find /home -name \*.[rs]hosts"
+        self.homes = "find /home -regex .*\\.[rs]hosts"
         self.etc = "find /etc -regex .*s*hosts.equiv"
     
     def check(self):
         homes = not_found(sudo(self.homes))
         etc = not_found(sudo(self.etc))
+        print homes, etc
         return homes and etc
 
     def fix(self):
         if not self.check():
-            homes = get_results(sudo(self.homes))
-            etc = get_results(sudo(self.etc))
+            homes = unpack_lines(get_results(sudo(self.homes)))
+            etc = unpack_lines(get_results(sudo(self.etc)))
             remove_files(homes)
             remove_files(etc)
     
@@ -229,11 +229,11 @@ class v50415(STIG):
         self.fn = "/etc/ssh/sshd_config"
 
     def check(self):
-        disallow_empty_pw = grep_file(self.fn, "^PermitEmptyPasswords no")
+        disallow_empty_pw = grep_file(self.fn, "^PermitEmptyPasswords no$")
         return disallow_empty_pw
 
     def fix(self):        
-        replace_line(self.fn, "^PermitEmptyPasswords", "PermitEmptyPasswords no")
+        replace_line(self.fn, "^PermitEmptyPasswords.*", "PermitEmptyPasswords no")
 
 class v50454(STIG):
     def __init__(self):
@@ -242,6 +242,7 @@ class v50454(STIG):
         
     def check(self):
         no_public = not grep_file(self.filename, "public")
+        return no_public
 
     def fix(self):
         return self.error("Disable the default public password")
@@ -269,7 +270,6 @@ class v50467(STIG):
         files_uptodate = True
         for f in self.data_files:
             files_uptodate = files_uptodate and (not older_than(f, 7))
-        print av_installed, cron_configured, files_uptodate
         return av_installed and cron_configured and files_uptodate
 
     def fix(self):        
@@ -298,7 +298,6 @@ class v50469(STIG):
 
     def get_affected_files(self):
         files_str = ex.run("find "+self.basedir+" -type f -exec grep -l 'start on control-alt-delete' {} \;")
-        print "found:", files_str
         buf = sio.StringIO(files_str)
         files = []
         for f in buf.readlines():
@@ -310,19 +309,30 @@ class v50469(STIG):
         files = self.get_affected_files()
         shutdown_present = False
         for f in files:
-            print "Checking", f
             shutdown_present = shutdown_present or grep_file(f, "^exec shutdown.*")
         return not shutdown_present
 
     def fix(self):
         files = self.get_affected_files()
         for f in files:
-            print "modifying", f
             replace_line(f, "^exec shutdown.*", "exec /usr/bin/logger -p security.info \"Ctl-Alt-Delete pressed\"")
 
 class v50502(STIG):
     def __init__(self):
         STIG.__init__(self, "(v50502) Disable TFTP daemon")
+        self.pkgs = ["tftpd","tftpd-hpa","atftpd","python-txtftp"]
+
+    def check(self):
+        srv_running = service_running("tftp")
+        pkg_installed = False
+        for p in self.pkgs:
+            pkg_installed = pkg_installed or verify_package(p, do_install=False)
+        return not srv_running and not pkg_installed
+
+    def fix(self):
+        disable_service("tftp")
+        for p in self.pkgs:
+            remove_package(p)
         
 
 class v1025(STIG):
@@ -336,3 +346,4 @@ class v1025(STIG):
 
     def fix(self):
         get_results(sudo("chown root:root /etc/security/access.conf"))
+
