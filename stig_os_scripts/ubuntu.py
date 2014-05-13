@@ -98,7 +98,7 @@ def sshd_running():
     return cmd("pidof sshd")
 
 def replace_line(filename, pattern, replace):
-    cmd(sudo("perl -pie 's/{0}/{1}/g' {2} > {2}".format(pattern,replace,filename)))
+    cmd(sudo("perl -i -p -e 's/{0}/{1}/g;' {2}".format(pattern,replace,filename)))
 
 def install_and_configure_sshd():
     verify_package("openssh-server")
