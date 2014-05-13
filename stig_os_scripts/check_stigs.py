@@ -27,10 +27,15 @@ stigs["cat1"] = [cat1.v1046(),
 print("Running CAT I STIG checks for Ubuntu")
 
 results = []
+notes = []
 for s in stigs["cat1"]:
     res = s.check()
     results.append((res, str(s), s))
     print(s, file=sys.stderr)
     if not res:
-        s.fix()
+        fixed = s.fix()
+        if not fixed:
+            notes.append(s.message)
+
+print(notes)
         

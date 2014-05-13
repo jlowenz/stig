@@ -8,12 +8,40 @@ import string as s
 import datetime as dt
 from pwd import getpwuid
 
-class stig:
-    def __init__(self, do_apply = False):
-        self.do_apply = do_apply
+Pass = True
+Fail = False
 
-    def blah(self):
-        pass
+def status(v):
+    if v:
+        return "Pass"
+    else:
+        return "Fail"
+
+class STIG(object):
+    def __init__(self, desc):
+        self.desc = desc
+        self.status = Fail
+
+    def __str__(self):
+        return self.desc + ": " + status(self.check())
+
+    def error(self, msg):
+        self.message = msg
+        self.status = Fail
+        return msg
+
+    def success(self, msg):
+        self.message = msg
+        self.status = Pass
+        return msg
+
+    def check(self):
+        print self.desc + ": checking..."
+        return False
+    
+    def fix(self):
+        print self.desc + ": fixing..."
+        return False
 
 def sudo(expr):
     return "gksudo -- " + expr
