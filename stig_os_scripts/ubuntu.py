@@ -6,6 +6,7 @@ import pexpect as ex
 import StringIO as sio
 import string as s
 import datetime as dt
+from pwd import getpwuid
 
 class stig:
     def __init__(self, do_apply = False):
@@ -138,3 +139,9 @@ def unpack_lines(lines_str):
         lines.append(ff)
     return lines
     
+def get_file_owner(filename):
+    return getpwuid(os.stat(filename).st_uid).pw_name
+
+def get_file_group(filename):
+    return getpwuid(os.stat(filename).st_gid).pw_name    
+

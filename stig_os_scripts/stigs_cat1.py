@@ -340,10 +340,44 @@ class v1025(STIG):
         STIG.__init__(self,"(v1025) The /etc/security/access.conf file must be owned by root")
     
     def check(self):
-#        st = os.stat("/etc/security/access.conf")
-         st = get_results("ls -al /etc/security/access.conf")
-         return (st.count("root") == 2)
+         return (get_file_owner("/etc/security/access.conf")=="root")
 
     def fix(self):
-        get_results(sudo("chown root:root /etc/security/access.conf"))
+        get_results(sudo("chown root /etc/security/access.conf"))
+
+class v1055(STIG):
+    def __init__(self):
+        STIG.__init__(self,"(v1055) The /etc/security/access.conf file must have mode 0640 or less permissive")
+    
+    def check(self):
+        st = os.stat("/etc/security/access.conf")
+        return oct((st.st_mode & 0777) <= 0640)
+
+    def fix(self):
+        return self.error("Set permissions on /etc/security/access.conf to be 0640 or less")
+
+class v1027(STIG):
+    def __init__(self):
+        STIG.__init__(self,"(v1027) The /etc/samba/smb.conf file must be owned by root")
+    
+    def check(self):
+         return (get_file_owner("/etc/samba/smb.conf")=="root")
+
+    def fix(self):
+        get_results(sudo("chown root /etc/samba/smb.conf"))
+
+
+class v1028(STIG):
+    def __init__(self):
+        STIG.__init__(self,"(v1028) The smb.conf file must have mode 0644 or less permissive")
+    
+    def check(self):
+        st = os.stat("/etc/samba/smb.conf")
+        return oct((st.st_mode & 0777) <= 0644)
+
+    def fix(self):
+        return self.error("Set permissions on /etc/samba/smb.conf to be 0644 or less")
+
+
+
 
