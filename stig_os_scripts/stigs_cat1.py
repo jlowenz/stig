@@ -1,4 +1,5 @@
 from ubuntu import *
+import stig_functions
 import os
 import subprocess as p
 import StringIO as sio
@@ -323,4 +324,17 @@ class v50469(STIG):
 class v50502(STIG):
     def __init__(self):
         STIG.__init__(self, "(v50502) Disable TFTP daemon")
+        self.pkgs = ["tftpd","tftpd-hpa","atftpd","python-txtftp"]
+
+    def check(self):
+        srv_running = service_running("tftp")
+        pkg_installed = False
+        for p in self.pkgs:
+            pkg_installed = pkg_installed or verify_package(p, do_install=False)
+        return not srv_running and not pkg_installed
         
+    def fix(self):
+        disable_service("tftp")
+        for p in self.pkgs:
+            remove_package(p)
+
