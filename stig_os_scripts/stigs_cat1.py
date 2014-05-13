@@ -324,3 +324,15 @@ class v50502(STIG):
     def __init__(self):
         STIG.__init__(self, "(v50502) Disable TFTP daemon")
         
+
+class v1025(STIG):
+    def __init__(self):
+        STIG.__init__(self,"(v1025) The /etc/security/access.conf file must be owned by root")
+    
+    def check(self):
+#        st = os.stat("/etc/security/access.conf")
+         st = get_results("ls -al /etc/security/access.conf")
+         return (st.count("root") == 2)
+
+    def fix(self):
+         st = sudo("chgrp root:root /etc/security/access.conf")
