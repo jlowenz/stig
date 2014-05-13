@@ -5,6 +5,7 @@ import fileinput as fin
 import pexpect as ex
 import StringIO as sio
 import string as s
+import datetime as dt
 
 class stig:
     def __init__(self, do_apply = False):
@@ -98,7 +99,9 @@ def sshd_running():
     return cmd("pidof sshd")
 
 def replace_line(filename, pattern, replace):
-    cmd(sudo("perl -i -p -e 's/{0}/{1}/g;' {2}".format(pattern,replace,filename)))
+    cmdstr = "perl -pi -e 's|{0}|{1}|g' {2}".format(pattern,replace,filename)
+    print cmdstr
+    cmd(sudo(cmdstr))
 
 def install_and_configure_sshd():
     verify_package("openssh-server")
@@ -123,5 +126,15 @@ def grep_file(filename, regex):
 def remove_user(username):
     return p.call("deluser --remove-home --remove-all-files " + username) == 0
 
-def dir_exists(path):
-    os.path.exists(path)
+def exists(path):
+    return os.path.exists(path)
+
+def older_than(path, days):
+    now = dt.datetime.now()
+    print now
+    t = os.path.getmtime(path)
+    filetime = dt.datetime.fromtimestamp(t)
+    print filetime
+    delta = now - filetime
+    print delta
+    return delta.days > days

@@ -1,9 +1,11 @@
 from ubuntu import *
 import os
 import subprocess as p
+import StringIO as sio
 
 # so for each fix class, we have a check and fix method
 
+gPREFIX = "../../" # GAH!!
 Pass = True
 Fail = False
 
@@ -17,7 +19,8 @@ class STIG(object):
     def __init__(self, desc):
         self.desc = desc
         self.status = Fail
-        
+        self.prefix = gPREFIX
+
     def __str__(self):
         return self.desc + ": " + status(self.check())
 
@@ -133,7 +136,7 @@ class v44658(STIG):
         return (not running) or (not insecure)
     
     def fix(self):
-        return error("Must remove the insecure_locks option from nfs exports")
+        return self.error("Must remove the insecure_locks option from nfs exports")
     
 
 class v4382(STIG):
@@ -144,11 +147,11 @@ class v4382(STIG):
     def check(self):
         used_browser = False
         for p in self.paths:
-            used_browser = used_browser or dir_exists(os.path.expanduser(p))
+            used_browser = used_browser or exists(os.path.expanduser(p))
         return not used_browser
 
     def fix(self):
-        return error("Root user must not run web browser")
+        return self.error("Root user must not run web browser")
 
 class v4387(STIG):
     def __init__(self):
@@ -162,7 +165,7 @@ class v4387(STIG):
         return (not ftp_account) or no_shell
 
     def fix(self):
-        return error("Disable ftp account or set shell to /bin/false")
+        return self.error("Disable ftp account or set shell to /bin/false")
 
 class v4399(STIG):
     def __init__(self):
@@ -175,7 +178,7 @@ class v4399(STIG):
     
     def fix(self):
         remove_package("nis")
-        return error("Disable and remove NIS or configure the system to not use UDP")
+        return self.error("Disable and remove NIS or configure the system to not use UDP")
 
 class v27435(STIG):
     def __init__(self):
@@ -231,3 +234,93 @@ class v50415(STIG):
 
     def fix(self):        
         replace_line(self.fn, "^PermitEmptyPasswords", "PermitEmptyPasswords no")
+
+class v50454(STIG):
+    def __init__(self):
+        STIG.__init__(self, "(v50454) snmpd must not use default password")
+        self.filename = "/etc/snmp/snmp.conf"
+        
+    def check(self):
+        no_public = not grep_file(self.filename, "public")
+
+    def fix(self):
+        return self.error("Disable the default public password")
+
+
+class v50467(STIG):
+    def __init__(self):
+        STIG.__init__(self, "(v50467) System must use and update a DoD-approved virus scan program")
+        self.envvar = "PATH_TO_AV_ZIP"
+        self.tarball = "McAfeeVSEForLinux-2.0.0.28948/McAfeeVSEForLinux-2.0.0.28948-release-full.x86_64.tar.gz"
+        self.program_name = "nails"
+        self.install_prefix = "/opt/NAI/LinuxShield"
+        self.cron = ["/etc/cron*", "/var/spool/cron/*"]
+        self.options = "doc/nails.options"
+        self.data_files = [os.path.join(self.install_prefix,"engine","dat","avvclean.dat"),
+                           os.path.join(self.install_prefix,"engine","dat","avvnames.dat"),
+                           os.path.join(self.install_prefix,"engine","dat","avvscan.dat")]
+                                          
+    def check(self):
+        av_installed = exists(self.install_prefix) \
+            and exists(os.path.join(self.install_prefix, "bin", self.program_name))
+        cron_configured = False
+        for f in self.cron:
+            cron_configured = cron_configured or grep_file(f, self.program_name)
+        files_uptodate = True
+        for f in self.data_files:
+            files_uptodate = files_uptodate and (not older_than(f, 7))
+        print av_installed, cron_configured, files_uptodate
+        return av_installed and cron_configured and files_uptodate
+
+    def fix(self):        
+        # check if the env var is set
+        if os.environ.get(self.envvar):
+            zipfile = os.environ.get(self.envvar)
+            basename = os.path.basename(zipfile)
+            basedir = os.path.dirname(zipfile)
+            p.call("pushd " + basedir, shell=True) 
+            p.call("unzip " + basename, shell=True) 
+            p.call("pushd " + "McAfeeVSEForLinux-2.0.0.28948", shell=True)
+            p.call("tar xzf McAfeeVSEForLinux-2.0.0.28948-release-full.x86_64.tar.gz", shell=True)
+            p.call("tar xzf McAfeeVSEForLinux-2.0.0.28948-others.tar.gz", shell=True)
+            p.call("gksudo dpkg -i MFErt.i686.deb", shell=True)
+            p.call("gksudo dpkg -i MFEcma.i686.deb", shell=True)
+            p.call("tar xzf McAfeeVSEForLinux-2.0.0.28948-release.tar.gz", shell=True)
+            p.call("cp {0} ~/".format(self.options), shell=True)
+            p.call("gksudo ./McAfeeVSEForLinux-2.0.0.28948-installer", shell=True)
+        else:
+            return self.error("Install the McAfee AV program, or set {0} environment variable".format(self.envvar))
+
+class v50469(STIG):
+    def __init__(self):
+        STIG.__init__(self, "(v50469) Disable ctl-alt-del sequence")
+        self.basedir = "/etc/init"
+
+    def get_affected_files(self):
+        files_str = ex.run("find "+self.basedir+" -type f -exec grep -l 'start on control-alt-delete' {} \;")
+        print "found:", files_str
+        buf = sio.StringIO(files_str)
+        files = []
+        for f in buf.readlines():
+            ff = s.strip(f)
+            files.append(os.path.join(self.basedir,ff))
+        return files
+
+    def check(self):
+        files = self.get_affected_files()
+        shutdown_present = False
+        for f in files:
+            print "Checking", f
+            shutdown_present = shutdown_present or grep_file(f, "^exec shutdown.*")
+        return not shutdown_present
+
+    def fix(self):
+        files = self.get_affected_files()
+        for f in files:
+            print "modifying", f
+            replace_line(f, "^exec shutdown.*", "exec /usr/bin/logger -p security.info \"Ctl-Alt-Delete pressed\"")
+
+class v50502(STIG):
+    def __init__(self):
+        STIG.__init__(self, "(v50502) Disable TFTP daemon")
+        
