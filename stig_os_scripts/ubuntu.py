@@ -29,7 +29,8 @@ def get_results(expr):
 
 def not_found(expr):
     ret = ex.run(expr,withexitstatus=True)
-    return ret[0] == '' and ret[1] == 0
+    print ret
+    return ret[0] == '' and ret[1] == 1
 
 def verify_package(pkg_name, do_install=True):
     """ Check to see if a package is installed, and if not, install according to the argument do_install """
@@ -100,7 +101,6 @@ def sshd_running():
 
 def replace_line(filename, pattern, replace):
     cmdstr = "perl -pi -e 's|{0}|{1}|g' {2}".format(pattern,replace,filename)
-    print cmdstr
     cmd(sudo(cmdstr))
 
 def install_and_configure_sshd():
@@ -110,13 +110,7 @@ def install_and_configure_sshd():
         replace_line("/etc/ssh/sshd_config", "^Protocol .*", "Protocol 2")
     
 def remove_files(files):
-    buf = sio.StringIO(files)
-    lines = []
-    for f in buf.readlines():
-        ff = s.strip(f)
-        lines.append(ff)
-    lines = s.join(lines)
-    print lines
+    lines = s.join(files)
     cmd(sudo("rm {0}".format(lines)))
 
 def grep_file(filename, regex):
@@ -131,10 +125,16 @@ def exists(path):
 
 def older_than(path, days):
     now = dt.datetime.now()
-    print now
     t = os.path.getmtime(path)
     filetime = dt.datetime.fromtimestamp(t)
-    print filetime
     delta = now - filetime
-    print delta
     return delta.days > days
+
+def unpack_lines(lines_str):
+    buf = sio.StringIO(lines_str)
+    lines = []
+    for f in buf.readlines():
+        ff = s.strip(f)
+        lines.append(ff)
+    return lines
+    
