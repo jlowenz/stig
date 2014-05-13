@@ -335,4 +335,4 @@ class v1025(STIG):
          return (st.count("root") == 2)
 
     def fix(self):
-         st = sudo("chgrp root:root /etc/security/access.conf")
+        get_results(sudo("chown root:root /etc/security/access.conf"))
