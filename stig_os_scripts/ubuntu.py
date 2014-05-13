@@ -33,12 +33,31 @@ def not_found(expr):
 def verify_package(pkg_name, do_install=True):
     """ Check to see if a package is installed, and if not, install according to the argument do_install """
     print "Verifying package:", pkg_name
-    pkg_check = os.system("dpkg --list | grep ^ii.*" + pkg_name)
+    pkg_check = os.system("dpkg --list | grep -ci '^ii  " + pkg_name + "'")
     if pkg_check != 0 and do_install:        
         ret = p.call("gksudo -- apt-get install -y " + pkg_name, shell=True)
         return ret == 0
     else:
         return pkg_check == 0
+
+def remove_package(pkg_name):
+    """ Check to see if a package is installed, and it it is, remove it """
+    pkg_check = p.call("dpkg --list | grep '^ii  " + pkg_name + "'", shell=True)
+    if pkg_check == 0:
+        ret = p.call("apt-get remove --purge " + pkg_name, shell=True)
+        return ret == 0
+    return True
+
+def service_running(srv_name):
+    """ Check to see if a service is running """
+    pid = p.call("pidof " + srv_name + "d", shell=True)
+    svc = p.call("initctl list | grep " + srv_name, shell=True)
+    return pid == 0 or svc == 0
+
+def disable_service(srv_name, pkg_name=None):
+    ret = p.call(sudo("update-inetd --disable " + srv_name), shell=True)
+    if pkg_name:
+        remove_package(pkg_name)
 
 def check_os_version():
     # Check the OS version first.  Meets a STIG requirement and if it's not a supported version for this lockdown script exit
@@ -65,7 +84,6 @@ def check_os_version():
         print 'Found version ' + os_text_version
         print 'Unsupported version of Ubuntu detected.\nThis script supports Ubuntu 12.04.4 LTS and 14.04 LTS.\nExiting.\n'
         return False
-
     return True
 
 def install_dependencies():
@@ -80,7 +98,7 @@ def sshd_running():
     return cmd("pidof sshd")
 
 def replace_line(filename, pattern, replace):
-    cmd(sudo("perl -pie 's/{0}/{1}/g' {2}".format(pattern,replace,filename)))
+    cmd(sudo("perl -pie 's/{0}/{1}/g' {2} > {2}".format(pattern,replace,filename)))
 
 def install_and_configure_sshd():
     verify_package("openssh-server")
@@ -98,5 +116,12 @@ def remove_files(files):
     print lines
     cmd(sudo("rm {0}".format(lines)))
 
-def find_files():
-    pass
+def grep_file(filename, regex):
+    """ Grep the file for the expression, return True if match """
+    return p.call("grep -ciE '{0}' {1}".format(regex,filename), shell=True) == 0
+
+def remove_user(username):
+    return p.call("deluser --remove-home --remove-all-files " + username) == 0
+
+def dir_exists(path):
+    os.path.exists(path)
